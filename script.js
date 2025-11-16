@@ -1,4 +1,4 @@
-// script.js - קוד מלא, סופי, ויציב. פוקוס קבוע (50% 50%) ללא "בריחה".
+// script.js - קוד מלא, סופי, ויציב. זום דינמי (כל נקודה במסך).
 
 // הגדרות עיקריות
 const MAX_ZOOM = 10;
@@ -26,14 +26,13 @@ let isGlitching = false;
 let rustHoldTimeoutId = null;
 let glitchTimeoutId = null;
 let initialDistance = 0;
-// פוקוס קבוע במרכז, לא משתנה
-let focusX = 50; 
-let focusY = 50; 
+let focusX = 50; // מתעדכן דינמית ע"י setZoomFocus
+let focusY = 50; // מתעדכן דינמית ע"י setZoomFocus
 let maxRustLevel = 0; // שומר את רמת החלודה הגבוהה ביותר שנחשפה
 
 
 function updateImageTransform() {
-    // הפוקוס תמיד במרכז (50% 50%) כדי שהעץ לא יברח מהזום
+    // הפוקוס מתעדכן לפי focusX/Y שנקבעו בלחיצה/מגע
     imageContainer.style.transformOrigin = `${focusX}% ${focusY}%`; 
     imageContainer.style.transform = `scale(${currentZoom})`;
 }
@@ -94,7 +93,8 @@ function activateGlitchAndReset() {
 
         // איפוס מלא למצב נקי ומרכזי
         currentZoom = 1;
-        // focusX ו-focusY נשארים 50 - אין צורך לאפס אותם מחדש
+        focusX = 50; // איפוס
+        focusY = 50; // איפוס
         maxRustLevel = 0; // איפוס רמת החלודה
         updateImageTransform();
         
@@ -104,8 +104,19 @@ function activateGlitchAndReset() {
     }, GLITCH_DURATION_MS);
 }
 
-// *** הפונקציה setZoomFocus נמחקה לחלוטין כדי למנוע כל תזוזה ***
+/**
+ * מחשב את נקודת הפוקוס (מקור הטרנספורמציה) לפי מיקום העכבר/מגע.
+ * *** פונקציה זו שוחזרה! ***
+ */
+function setZoomFocus(clientX, clientY) {
+    const rect = imageContainer.getBoundingClientRect();
+    
+    focusX = ((clientX - rect.left) / rect.width) * 100;
+    focusY = ((clientY - rect.top) / rect.height) * 100;
 
+    focusX = Math.max(0, Math.min(100, focusX));
+    focusY = Math.max(0, Math.min(100, focusY));
+}
 
 /**
  * מבצע את לוגיקת הזום.
@@ -162,6 +173,7 @@ function performZoom(delta) {
 
 function handleWheel(event) {
     event.preventDefault();
+    setZoomFocus(event.clientX, event.clientY); // *** שוחזר ***
     const delta = -event.deltaY * 0.005;
     performZoom(delta);
 }
@@ -173,7 +185,6 @@ function getDistance(t1, t2) {
         Math.pow(t2.clientY - t1.clientY, 2)
     );
 }
-// פונקציית getCenter כבר לא בשימוש ישיר, אבל נשמור אותה כרגע
 function getCenter(t1, t2) {
     return {
         x: (t1.clientX + t2.clientX) / 2,
@@ -201,6 +212,8 @@ function handleTouchStart(event) {
 
     if (event.touches.length === 2) {
         initialDistance = getDistance(event.touches[0], event.touches[1]);
+        const center = getCenter(event.touches[0], event.touches[1]); // *** שוחזר ***
+        setZoomFocus(center.x, center.y); // *** שוחזר ***
     }
 }
 
@@ -211,11 +224,14 @@ function handleTouchMove(event) {
         event.preventDefault();
         
         const newDistance = getDistance(event.touches[0], event.touches[1]);
-        
+        const center = getCenter(event.touches[0], event.touches[1]); // *** שוחזר ***
+
+        setZoomFocus(center.x, center.y); // *** שוחזר ***
+
         const scaleChange = newDistance / initialDistance;
         const delta = scaleChange - 1;
 
-        // מכפיל 1.0 עבור תנועת זום חלקה בנייד
+        // מכפיל 1.0 (שומר על חלקות)
         performZoom(delta * 1.0); 
         
         initialDistance = newDistance;
