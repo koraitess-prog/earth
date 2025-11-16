@@ -94,7 +94,7 @@ function activateGlitchAndReset() {
 
         // איפוס מלא למצב נקי ומרכזי
         currentZoom = 1;
-        // focusX ו-focusY נשארים 50
+        // focusX ו-focusY נשארים 50 - אין צורך לאפס אותם מחדש
         maxRustLevel = 0; // איפוס רמת החלודה
         updateImageTransform();
         
@@ -104,16 +104,8 @@ function activateGlitchAndReset() {
     }, GLITCH_DURATION_MS);
 }
 
-// פונקציה setZoomFocus קיימת אך לא נקראת בשום מקום כדי לשמור על יציבות
-/*
-function setZoomFocus(clientX, clientY) {
-    const rect = imageContainer.getBoundingClientRect();
-    focusX = ((clientX - rect.left) / rect.width) * 100;
-    focusY = ((clientY - rect.top) / rect.height) * 100;
-    focusX = Math.max(0, Math.min(100, focusX));
-    focusY = Math.max(0, Math.min(100, focusY));
-}
-*/
+// *** הפונקציה setZoomFocus נמחקה לחלוטין כדי למנוע כל תזוזה ***
+
 
 /**
  * מבצע את לוגיקת הזום.
@@ -170,7 +162,6 @@ function performZoom(delta) {
 
 function handleWheel(event) {
     event.preventDefault();
-    // setZoomFocus בוטל כדי לשמור על פוקוס קבוע
     const delta = -event.deltaY * 0.005;
     performZoom(delta);
 }
@@ -182,6 +173,7 @@ function getDistance(t1, t2) {
         Math.pow(t2.clientY - t1.clientY, 2)
     );
 }
+// פונקציית getCenter כבר לא בשימוש ישיר, אבל נשמור אותה כרגע
 function getCenter(t1, t2) {
     return {
         x: (t1.clientX + t2.clientX) / 2,
@@ -209,7 +201,6 @@ function handleTouchStart(event) {
 
     if (event.touches.length === 2) {
         initialDistance = getDistance(event.touches[0], event.touches[1]);
-        // setZoomFocus בוטל גם כאן כדי למנוע תזוזה במגע
     }
 }
 
@@ -220,8 +211,6 @@ function handleTouchMove(event) {
         event.preventDefault();
         
         const newDistance = getDistance(event.touches[0], event.touches[1]);
-
-        // setZoomFocus בוטל גם כאן כדי למנוע תזוזה בזום
         
         const scaleChange = newDistance / initialDistance;
         const delta = scaleChange - 1;
