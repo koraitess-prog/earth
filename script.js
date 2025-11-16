@@ -1,4 +1,4 @@
-// script.js - קוד סופי: זום מהמרכז + גרירה (Pan).
+// script.js - קוד סופי: זום במשיכה אנכית (נייד) + גרירה (נייד/מחשב).
 
 // הגדרות עיקריות
 const MAX_ZOOM = 10;
@@ -27,7 +27,7 @@ let rustHoldTimeoutId = null;
 let glitchTimeoutId = null;
 let maxRustLevel = 0; 
 
-// --- משתנים חדשים לגרירה (Pan) ---
+// --- משתנים לגרירה/מגע ---
 let isDragging = false;
 let startX = 0;
 let startY = 0;
@@ -35,25 +35,17 @@ let currentTranslateX = 0;
 let currentTranslateY = 0;
 let previousTranslateX = 0;
 let previousTranslateY = 0;
-// ---------------------------------
 
-// משתנים למגע/צביטה
-let initialDistance = 0;
+// משתנים למגע/צביטה (משתמשים רק באצבע אחת כעת)
+let initialDistance = 0; // נשמר למקרה שנחזיר צביטה, אבל אינו בשימוש כעת
 let isPinching = false;
 
 
 function updateImageTransform() {
-    // הפוקוס תמיד במרכז (50% 50%) בזמן הזום
+    // הפוקוס תמיד במרכז (50% 50%)
     imageContainer.style.transformOrigin = '50% 50%'; 
     imageContainer.style.transform = 
         `translate(${currentTranslateX}px, ${currentTranslateY}px) scale(${currentZoom})`;
-
-    // בלוודא שכל שכבות העץ ממוקמות באותה צורה
-    document.querySelectorAll('.tree-layer').forEach(layer => {
-        // המיקום הראשוני שלהם הוא translate(-50%, -50%)
-        // כך שאין צורך לשנות להם את הטרנספורם כאן.
-        // הם יזוזו עם ה-imageContainer
-    });
 }
 
 function updateRustLayers() {
@@ -111,13 +103,6 @@ function activateGlitchAndReset() {
     }, GLITCH_DURATION_MS);
 }
 
-// פונקציית setZoomFocus כבר לא נחוצה כי הפוקוס תמיד 50% 50%
-/*
-function setZoomFocus(clientX, clientY) {
-    // ...
-}
-*/
-
 function performZoom(delta) {
     if (rustHoldTimeoutId) {
         clearTimeout(rustHoldTimeoutId);
@@ -129,7 +114,7 @@ function performZoom(delta) {
         glitchOverlay.classList.remove('glitching');
         isGlitching = false;
         currentZoom = 1;
-        currentTranslateX = 0; // איפוס תרגום בעת ביטול גליץ'
+        currentTranslateX = 0;
         currentTranslateY = 0;
         previousTranslateX = 0;
         previousTranslateY = 0;
@@ -143,7 +128,6 @@ function performZoom(delta) {
     let newZoom = currentZoom + delta;
     newZoom = Math.max(1, Math.min(MAX_ZOOM, newZoom));
     
-    // אם הזום חוזר ל-1, נאפס את מיקום התרגום
     if (newZoom === 1) {
         currentTranslateX = 0;
         currentTranslateY = 0;
@@ -180,15 +164,17 @@ function handleWheel(event) {
 }
 
 function handleMouseDown(event) {
-    if (isGlitching || event.button !== 0 || isPinching) return; // רק כפתור שמאלי, ולא בזמן צביטה
+    if (isGlitching || event.button !== 0) return;
     isDragging = true;
     startX = event.clientX;
     startY = event.clientY;
+    previousTranslateX = currentTranslateX;
+    previousTranslateY = currentTranslateY;
     imageContainer.style.cursor = 'grabbing';
 }
 
 function handleMouseMove(event) {
-    if (!isDragging || isGlitching || isPinching) return;
+    if (!isDragging || isGlitching) return;
 
     const dx = event.clientX - startX;
     const dy = event.clientY - startY;
@@ -208,21 +194,8 @@ function handleMouseUp() {
 }
 
 // ------------------------------------------
-// מאזינים למגע (Pinch Zoom וגרירה)
+// מאזינים למגע (זום אנכי וגרירה)
 // ------------------------------------------
-
-function getDistance(t1, t2) {
-    return Math.sqrt(
-        Math.pow(t2.clientX - t1.clientX, 2) +
-        Math.pow(t2.clientY - t1.clientY, 2)
-    );
-}
-function getCenter(t1, t2) {
-    return {
-        x: (t1.clientX + t2.clientX) / 2,
-        y: (t1.clientY + t2.clientY) / 2
-    };
-}
 
 function handleTouchStart(event) {
     // ... (איפוס גליץ' והמתנה) ...
@@ -246,51 +219,59 @@ function handleTouchStart(event) {
         return;
     }
 
-    if (event.touches.length === 2) {
-        isPinching = true;
-        initialDistance = getDistance(event.touches[0], event.touches[1]);
-        // כאשר מתחילים צביטה, "עוצרים" את הגרירה ומאפסים נקודת התחלה
-        previousTranslateX = currentTranslateX;
-        previousTranslateY = currentTranslateY;
-    } else if (event.touches.length === 1 && !isPinching) {
-        // גרירה באצבע אחת
+    if (event.touches.length === 1) {
+        // גרירה או זום באצבע אחת
         isDragging = true;
         startX = event.touches[0].clientX;
         startY = event.touches[0].clientY;
         previousTranslateX = currentTranslateX;
         previousTranslateY = currentTranslateY;
     }
+    // צביטה (שתי אצבעות) אינה נתמכת יותר
 }
 
 function handleTouchMove(event) {
-    if (isGlitching) return;
-    event.preventDefault(); // מונע גלילה של הדף
+    if (isGlitching || event.touches.length !== 1) return;
+    event.preventDefault();
 
-    if (isPinching && event.touches.length === 2) {
-        const newDistance = getDistance(event.touches[0], event.touches[1]);
-        const scaleChange = newDistance / initialDistance;
-        const delta = scaleChange - 1;
-
-        // זום מהמרכז
-        performZoom(delta * 1.0); 
+    const dx = event.touches[0].clientX - startX;
+    const dy = event.touches[0].clientY - startY;
+    
+    // שינוי המיקום האנכי המוחלט של המגע
+    const currentY = event.touches[0].clientY;
+    const initialY = startY;
+    
+    // אם התנועה היא בעיקר אנכית, נפעיל זום
+    if (Math.abs(dy) > Math.abs(dx) && currentZoom > 1) { 
+        // זום מבוסס על תנועה אנכית (ככל שמזיזים יותר, הזום מהיר יותר)
+        // ניתן להתאים את המכפיל 0.005 לפי הצורך
+        const zoomDelta = dy * -0.005; // משיכה למעלה (-) = זום-אין (+)
+        performZoom(zoomDelta);
         
-        initialDistance = newDistance;
-
-    } else if (isDragging && event.touches.length === 1 && !isPinching) {
-        const dx = event.touches[0].clientX - startX;
-        const dy = event.touches[0].clientY - startY;
-
-        currentTranslateX = previousTranslateX + dx;
-        currentTranslateY = previousTranslateY + dy;
+        // כדי שהגרירה לא תעבוד יחד עם הזום, נאפס את נקודת ההתחלה
+        // כך שכל תנועה אנכית נוספת תמשיך להשפיע על הזום
+        startY = currentY; 
+        previousTranslateY = currentTranslateY;
         
-        updateImageTransform();
+    } else {
+        // אם התנועה היא בעיקר אופקית (או אנכית בזום 1) נפעיל גרירה (Pan)
+        // אם הזום הוא 1, אין גרירה (נמנע תזוזה אנכית וגלילה של הדף)
+        if (currentZoom > 1) {
+            currentTranslateX = previousTranslateX + dx;
+            currentTranslateY = previousTranslateY + dy;
+            updateImageTransform();
+        } else {
+             // בזום 1, נמנע תנועה כמעט לחלוטין כדי לא לגרור את העץ
+             currentTranslateX = 0;
+             currentTranslateY = 0;
+        }
     }
 }
 
 function handleTouchEnd() {
     isPinching = false;
     isDragging = false;
-    previousTranslateX = currentTranslateX; // שמור את המיקום הסופי של הגרירה
+    previousTranslateX = currentTranslateX; 
     previousTranslateY = currentTranslateY;
 
     if (currentZoom === 1 && !rustHoldTimeoutId && !isGlitching) {
@@ -310,7 +291,7 @@ window.addEventListener('wheel', handleWheel, { passive: false });
 // מאזיני עכבר לגרירה
 imageContainer.addEventListener('mousedown', handleMouseDown);
 window.addEventListener('mousemove', handleMouseMove);
-window.addEventListener('mouseup', handleMouseUp); // על ה-window כדי לתפוס גם כשהעכבר יוצא
+window.addEventListener('mouseup', handleMouseUp); 
 
 // מאזיני מגע
 window.addEventListener('touchstart', handleTouchStart, { passive: false });
