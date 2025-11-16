@@ -5,6 +5,8 @@ const MAX_ZOOM = 10;
 const RUST_THRESHOLD = [3, 6, 9]; // ספי חלודה
 const RUST_HOLD_DELAY_MS = 2000; // 2 שניות המתנה
 const GLITCH_DURATION_MS = 500; // משך הגליץ'
+const TOUCH_ZOOM_SENSITIVITY = 0.01; // רגישות משיכה אנכית לזום (הוגבר)
+const MIN_PAN_ZOOM = 1.05; // זום מינימלי להתחלת גרירה (Pan)
 
 // אלמנטים
 const imageContainer = document.getElementById('image-container');
@@ -36,8 +38,7 @@ let currentTranslateY = 0;
 let previousTranslateX = 0;
 let previousTranslateY = 0;
 
-// משתנים למגע/צביטה (משתמשים רק באצבע אחת כעת)
-let initialDistance = 0; // נשמר למקרה שנחזיר צביטה, אבל אינו בשימוש כעת
+// משתנים למגע/צביטה
 let isPinching = false;
 
 
@@ -227,7 +228,7 @@ function handleTouchStart(event) {
         previousTranslateX = currentTranslateX;
         previousTranslateY = currentTranslateY;
     }
-    // צביטה (שתי אצבעות) אינה נתמכת יותר
+    // צביטה (שתי אצבעות) אינה נתמכת
 }
 
 function handleTouchMove(event) {
@@ -237,34 +238,30 @@ function handleTouchMove(event) {
     const dx = event.touches[0].clientX - startX;
     const dy = event.touches[0].clientY - startY;
     
-    // שינוי המיקום האנכי המוחלט של המגע
-    const currentY = event.touches[0].clientY;
-    const initialY = startY;
-    
-    // אם התנועה היא בעיקר אנכית, נפעיל זום
-    if (Math.abs(dy) > Math.abs(dx) && currentZoom > 1) { 
-        // זום מבוסס על תנועה אנכית (ככל שמזיזים יותר, הזום מהיר יותר)
-        // ניתן להתאים את המכפיל 0.005 לפי הצורך
-        const zoomDelta = dy * -0.005; // משיכה למעלה (-) = זום-אין (+)
+    // סף קטן למניעת 'קפיצה'
+    const THRESHOLD = 5; 
+
+    // אם התנועה היא בעיקר אנכית (dy גדול מ-dx)
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > THRESHOLD) { 
+        // זום מבוסס על תנועה אנכית
+        // משיכה למעלה (dy שלילי) = זום-אין (delta חיובי)
+        const zoomDelta = dy * -TOUCH_ZOOM_SENSITIVITY; 
         performZoom(zoomDelta);
         
-        // כדי שהגרירה לא תעבוד יחד עם הזום, נאפס את נקודת ההתחלה
-        // כך שכל תנועה אנכית נוספת תמשיך להשפיע על הזום
-        startY = currentY; 
-        previousTranslateY = currentTranslateY;
+        // נאפס את נקודת ההתחלה כדי להמשיך זום בצורה חלקה
+        startX = event.touches[0].clientX;
+        startY = event.touches[0].clientY;
+        
+    } else if (currentZoom > MIN_PAN_ZOOM && Math.abs(dx) > THRESHOLD) {
+        // אם התנועה היא בעיקר אופקית, ורק אם התמונה מוגדלת מספיק, נפעיל גרירה (Pan)
+        currentTranslateX = previousTranslateX + dx;
+        currentTranslateY = previousTranslateY + dy;
+        updateImageTransform();
         
     } else {
-        // אם התנועה היא בעיקר אופקית (או אנכית בזום 1) נפעיל גרירה (Pan)
-        // אם הזום הוא 1, אין גרירה (נמנע תזוזה אנכית וגלילה של הדף)
-        if (currentZoom > 1) {
-            currentTranslateX = previousTranslateX + dx;
-            currentTranslateY = previousTranslateY + dy;
-            updateImageTransform();
-        } else {
-             // בזום 1, נמנע תנועה כמעט לחלוטין כדי לא לגרור את העץ
-             currentTranslateX = 0;
-             currentTranslateY = 0;
-        }
+        // אם הזום הוא 1, או אם זו תנועה קטנה מדי, נשמור על יציבות
+        currentTranslateX = previousTranslateX;
+        currentTranslateY = previousTranslateY;
     }
 }
 
