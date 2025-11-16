@@ -1,0 +1,125 @@
+/* style.css - קוד מלא עם תצוגת זום-אאוט ראשונית גדולה יותר */
+
+/* איפוס CSS בסיסי לוודא שאין שוליים מפריעים */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    /* רקע שחור חזק וכיסוי מסך מלא */
+    background-color: #000000 !important; 
+    overflow: hidden !important; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh !important;
+    width: 100vw !important;
+}
+
+#image-container {
+    /* המיכל נשאר בגודל מלא כדי לאפשר זום */
+    position: relative;
+    width: 100vw; 
+    height: 100vh;
+    transition: transform 0.2s ease-out; 
+    overflow: hidden;
+}
+
+/* -------------------------------------
+   שינוי כאן: התמונה תופסת רק 70% מהמיכל
+   ------------------------------------- */
+.tree-layer {
+    position: absolute;
+    /* מרכוז התמונה במיכל */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); 
+
+    /* הקטנת גודל התמונה ההתחלתית */
+    width: 70%; 
+    height: 70%;
+    
+    pointer-events: none;
+    object-fit: contain; 
+    transition: opacity 0.5s ease-in-out; 
+}
+
+/* התמונה הנקייה (בסיס) */
+#tree-clean {
+    z-index: 1; 
+    opacity: 1; 
+}
+
+/* שכבות החלודה מתחילות נסתרות וצריכות לכסות את הנקייה */
+.rust-layer {
+    z-index: 2; 
+    opacity: 0; 
+}
+
+/* -------------------
+   אפקט גליץ' חשמלי ומהבהב
+   ------------------- */
+
+#glitch-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: black;
+    opacity: 0; 
+    z-index: 10; 
+    pointer-events: none;
+    transition: opacity 0.1s; 
+}
+
+#glitch-overlay.glitching {
+    opacity: 1;
+    animation: tv-glitch 0.03s steps(2, end) infinite alternate; 
+    
+    background: 
+        repeating-linear-gradient(
+            90deg, 
+            rgba(255, 255, 255, 0.2), 
+            rgba(0, 0, 0, 0.08) 1px,
+            rgba(255, 255, 255, 0.2) 2px
+        ),
+        repeating-linear-gradient(
+            0deg, 
+            rgba(255, 255, 255, 0.15) 0, 
+            rgba(0, 0, 0, 0.6) 2px,
+            rgba(0, 0, 0, 0.4) 3px
+        ),
+        black; 
+    
+    box-shadow: 
+        1px 0 0 rgba(255, 0, 0, 1),      
+        -1px 0 0 rgba(0, 255, 255, 1),   
+        5px 5px 0 rgba(255, 255, 0, 0.5), 
+        -5px -5px 0 rgba(0, 255, 0, 0.5); 
+    
+    --glitch-offset: 15px; 
+}
+
+@keyframes tv-glitch {
+    0% {
+        transform: translate(calc(var(--glitch-offset) * 0.1), 0);
+        filter: hue-rotate(0deg) contrast(150%) brightness(120%); 
+        opacity: 0.8; 
+        background-position: 0% 0%; 
+    }
+    50% {
+        transform: translate(calc(var(--glitch-offset) * -1), calc(var(--glitch-offset) * 1));
+        filter: hue-rotate(-30deg) contrast(200%) brightness(100%); 
+        opacity: 1; 
+        background-position: 50% 50%; 
+    }
+    100% {
+        transform: translate(calc(var(--glitch-offset) * 1), calc(var(--glitch-offset) * -1));
+        filter: hue-rotate(30deg) contrast(180%) brightness(130%);
+        opacity: 0.9; 
+        background-position: 100% 100%; 
+    }
+}
