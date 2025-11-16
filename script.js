@@ -1,4 +1,4 @@
-// script.js - קוד סופי: מחשב = זום מרכזי + גרירה. פלאפון = זום דינמי מקוזז (Pinch).
+// script.js - קוד סופי משולב: מחשב = Pan / פלאפון = Dynamic Pinch (עם חלודה וגליץ')
 
 // הגדרות עיקריות
 const MAX_ZOOM = 10;
@@ -56,18 +56,21 @@ function updateRustLayers() {
     let currentRustVisible = false;
     let currentMaxRustIndex = -1;
 
+    // קובע את רמת החלודה המקסימלית הרצויה לפי הזום הנוכחי
     rustLayers.forEach((layer, index) => {
         if (currentZoom >= RUST_THRESHOLD[index]) {
             currentMaxRustIndex = index;
         }
     });
 
+    // שומר את רמת החלודה הגבוהה ביותר שנחשפה אי פעם
     maxRustLevel = Math.max(maxRustLevel, currentMaxRustIndex + 1);
 
     if (currentZoom === 1) {
         rustLayers.forEach(layer => layer.style.opacity = 0);
         cleanLayer.style.opacity = 1;
     } else {
+        // חושף את השכבות עד לרמה המקסימלית שהושגה
         for (let i = 0; i < rustLayers.length; i++) {
             if (i < maxRustLevel) {
                 rustLayers[i].style.opacity = 1;
@@ -142,6 +145,7 @@ function performZoom(delta) {
     updateImageTransform();
     updateRustLayers();
 
+    // לוגיקת המתנה של 2 שניות על החלודה המלאה (בזום 1)
     if (currentZoom === 1 && delta < 0) {
         rustLayers.forEach(layer => layer.style.opacity = 0);
         rustLayers[2].style.opacity = 1;
@@ -164,7 +168,7 @@ function handleWheel(event) {
     event.preventDefault();
     const delta = -event.deltaY * 0.005;
     
-    // ** מונע קיזוז מגע מלהשפיע על גלגלת העכבר **
+    // מונע קיזוז מגע מלהשפיע על גלגלת העכבר
     currentTranslateX = previousTranslateX;
     currentTranslateY = previousTranslateY;
 
@@ -172,14 +176,12 @@ function handleWheel(event) {
 }
 
 function handleMouseDown(event) {
-    // מונע גרירה אם יש גליץ' או אם זה לא כפתור שמאלי
     if (isGlitching || event.button !== 0 || isPinching) return; 
     
     isDragging = true;
     startX = event.clientX;
     startY = event.clientY;
     
-    // שמור את המיקום הנוכחי כנקודת התחלה לגרירה
     previousTranslateX = currentTranslateX; 
     previousTranslateY = currentTranslateY;
     
@@ -187,7 +189,6 @@ function handleMouseDown(event) {
 }
 
 function handleMouseMove(event) {
-    // נכנס רק אם גוררים ולא בזמן גליץ'
     if (!isDragging || isGlitching || isPinching) return;
 
     const dx = event.clientX - startX;
@@ -238,8 +239,8 @@ function getRelativePosition(clientX, clientY) {
 
 
 function handleTouchStart(event) {
-    // ... (קוד איפוס גליץ' ושמירת יציבות) ...
     if (rustHoldTimeoutId || isGlitching) {
+        // מטפל באיפוס מיידי אם מתחילים מגע בזמן המתנה לגליץ'
         if (rustHoldTimeoutId) clearTimeout(rustHoldTimeoutId);
         if (glitchTimeoutId) clearTimeout(glitchTimeoutId);
         rustHoldTimeoutId = null;
@@ -265,54 +266,68 @@ function handleTouchStart(event) {
         const center = getCenter(event.touches[0], event.touches[1]);
         const relativeCenter = getRelativePosition(center.x, center.y);
 
-        // שמור את נקודת הפוקוס הראשונית בפיקסלים
         initialFocusPointX = relativeCenter.x;
         initialFocusPointY = relativeCenter.y;
 
-        // שמור את התרגום הנוכחי כנקודת התחלה לקיזוז
         previousTranslateX = currentTranslateX;
         previousTranslateY = currentTranslateY;
     }
-    // ** בטל גרירה באצבע אחת כדי למנוע התנגשות עם Pinch **
 }
 
 function handleTouchMove(event) {
-    // אם לא מצביט, או אם גליץ' פעיל, או אם זה לא 2 אצבעות - צא.
     if (isGlitching || !isPinching || event.touches.length !== 2) return;
     event.preventDefault(); 
 
     const newDistance = getDistance(event.touches[0], event.touches[1]);
     const scaleFactor = newDistance / initialDistance;
 
-    // 1. שמירת הזום הקודם לצורך חישוב הקיזוז
     const oldZoom = currentZoom;
     const newZoom = Math.max(1, Math.min(MAX_ZOOM, oldZoom * scaleFactor));
     
     if (newZoom === oldZoom) return;
 
-    // 2. חישוב הקיזוז המתמטי (כדי שהתמונה "תחזור" למקום)
+    // חישוב הקיזוז המתמטי (כדי שהתמונה "תחזור" למקום)
     const containerRect = imageContainer.getBoundingClientRect();
     const halfWidth = containerRect.width / 2;
     const halfHeight = containerRect.height / 2;
     
-    // המרחק של נקודת הפוקוס מהמרכז
     const focusOffsetX = initialFocusPointX - halfWidth;
     const focusOffsetY = initialFocusPointY - halfHeight;
 
-    // הקיזוז הוא ההפרש במיקום המפוקס לפני ואחרי הזום
     const compensateX = focusOffsetX * (newZoom - oldZoom);
     const compensateY = focusOffsetY * (newZoom - oldZoom);
 
-    // 3. עדכון התרגום (Translate) עם הקיזוז (הוספת הקיזוז למיקום הנוכחי)
+    // עדכון התרגום (Translate) עם הקיזוז
     currentTranslateX = previousTranslateX - compensateX;
     currentTranslateY = previousTranslateY - compensateY;
     
-    // 4. עדכון הזום
+    // עדכון הזום
     currentZoom = newZoom;
     updateImageTransform();
     updateRustLayers(); 
 
-    // 5. שמירת המיקום הנוכחי ומרחק ההתחלה להמשך תנועה חלקה
+    // ** הוספת לוגיקה לטיפול בחלודה וגליץ' במגע **
+    if (currentZoom === 1) {
+        // מטפל בהמתנת גליץ' אם הזום חזר ל-1
+        rustLayers.forEach(layer => layer.style.opacity = 0);
+        cleanLayer.style.opacity = 1;
+
+        if (!rustHoldTimeoutId) {
+             rustHoldTimeoutId = setTimeout(() => {
+                 rustHoldTimeoutId = null;
+                 activateGlitchAndReset();
+             }, RUST_HOLD_DELAY_MS);
+        }
+    } else {
+        // אם הזום גדול מ-1, בטל את ההמתנה אם הייתה
+        if (rustHoldTimeoutId) {
+            clearTimeout(rustHoldTimeoutId);
+            rustHoldTimeoutId = null;
+        }
+    }
+    // ------------------------------------------
+
+    // שמירת המיקום הנוכחי ומרחק ההתחלה להמשך תנועה חלקה
     previousTranslateX = currentTranslateX;
     previousTranslateY = currentTranslateY;
     initialDistance = newDistance;
@@ -321,7 +336,7 @@ function handleTouchMove(event) {
 function handleTouchEnd() {
     isPinching = false;
     
-    // איפוס נקודות המיקוד והגרירה
+    // איפוס נקודות המיקוד
     initialFocusPointX = 0; 
     initialFocusPointY = 0;
     
@@ -329,6 +344,7 @@ function handleTouchEnd() {
     previousTranslateX = currentTranslateX; 
     previousTranslateY = currentTranslateY;
 
+    // מטפל בהמתנת הגליץ' לאחר סיום מגע
     if (currentZoom === 1 && !rustHoldTimeoutId && !isGlitching) {
          rustHoldTimeoutId = setTimeout(() => {
              rustHoldTimeoutId = null;
