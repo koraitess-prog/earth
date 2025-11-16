@@ -1,4 +1,4 @@
-// script.js - קוד סופי משולב: מחשב = Pan / פלאפון = Pinch Zoom יציב + Drag Pan
+// script.js - קוד סופי משולב: מחשב = Pan / פלאפון = Pinch Zoom יציב + Drag Pan (רצף איפוס מתוקן)
 
 // הגדרות עיקריות
 const MAX_ZOOM = 10;
@@ -66,9 +66,11 @@ function updateRustLayers() {
     maxRustLevel = Math.max(maxRustLevel, currentMaxRustIndex + 1);
 
     if (currentZoom === 1) {
+        // מצב ברירת מחדל בזום 1 - נקי
         rustLayers.forEach(layer => layer.style.opacity = 0);
         cleanLayer.style.opacity = 1;
     } else {
+        // חושף את השכבות עד לרמה המקסימלית שהושגה
         for (let i = 0; i < rustLayers.length; i++) {
             if (i < maxRustLevel) {
                 rustLayers[i].style.opacity = 1;
@@ -84,14 +86,14 @@ function updateRustLayers() {
 function activateGlitchAndReset() {
     if (isGlitching) return;
     isGlitching = true;
-    glitchOverlay.classList.add('glitching');
+    glitchOverlay.classList.add('glitching'); // 1. הגליץ' מתחיל
 
     glitchTimeoutId = setTimeout(() => {
         glitchOverlay.classList.remove('glitching');
         isGlitching = false;
         glitchTimeoutId = null;
 
-        // איפוס מלא
+        // 2. איפוס מלא (מתרחש רק לאחר שהגליץ' נגמר)
         currentZoom = 1;
         currentTranslateX = 0;
         currentTranslateY = 0;
@@ -143,10 +145,11 @@ function performZoom(delta) {
     updateImageTransform();
     updateRustLayers();
 
-    // לוגיקת המתנה של 2 שניות על החלודה המלאה (בזום 1)
+    // לוגיקת המתנה של 2 שניות על החלודה המלאה (במחשב/גלגלת)
     if (currentZoom === 1 && delta < 0) {
+        // הצג חלודה מלאה כסימן לפני המתנה
         rustLayers.forEach(layer => layer.style.opacity = 0);
-        rustLayers[2].style.opacity = 1;
+        rustLayers[2].style.opacity = 1; 
         cleanLayer.style.opacity = 0;
         
         if (!rustHoldTimeoutId) {
@@ -174,7 +177,6 @@ function handleWheel(event) {
 }
 
 function handleMouseDown(event) {
-    // מונע גרירה אם יש גליץ' או אם זה לא כפתור שמאלי, או אם אנחנו במצב Pinch
     if (isGlitching || event.button !== 0 || isPinching) return; 
     
     isDragging = true;
@@ -188,13 +190,11 @@ function handleMouseDown(event) {
 }
 
 function handleMouseMove(event) {
-    // נכנס רק אם גוררים ולא בזמן גליץ'
     if (!isDragging || isGlitching || isPinching) return;
 
     const dx = event.clientX - startX;
     const dy = event.clientY - startY;
 
-    // גרירה רק אם התמונה מוגדלת
     if (currentZoom > 1) {
         currentTranslateX = previousTranslateX + dx;
         currentTranslateY = previousTranslateY + dy;
@@ -205,7 +205,6 @@ function handleMouseMove(event) {
 function handleMouseUp() {
     if (!isDragging) return;
     isDragging = false;
-    // שמור את המיקום הסופי של הגרירה
     previousTranslateX = currentTranslateX; 
     previousTranslateY = currentTranslateY;
     imageContainer.style.cursor = 'grab';
@@ -239,8 +238,8 @@ function getRelativePosition(clientX, clientY) {
 
 
 function handleTouchStart(event) {
+    // מטפל באיפוס מיידי אם מתחילים מגע בזמן המתנה לגליץ'
     if (rustHoldTimeoutId || isGlitching) {
-        // מטפל באיפוס מיידי אם מתחילים מגע בזמן המתנה לגליץ'
         if (rustHoldTimeoutId) clearTimeout(rustHoldTimeoutId);
         if (glitchTimeoutId) clearTimeout(glitchTimeoutId);
         rustHoldTimeoutId = null;
@@ -262,7 +261,7 @@ function handleTouchStart(event) {
 
     if (event.touches.length === 2) {
         isPinching = true;
-        isDragging = false; // בטל גרירה אם מתחילים Pinch
+        isDragging = false; 
         initialDistance = getDistance(event.touches[0], event.touches[1]);
         const center = getCenter(event.touches[0], event.touches[1]);
         const relativeCenter = getRelativePosition(center.x, center.y);
@@ -273,7 +272,7 @@ function handleTouchStart(event) {
         previousTranslateX = currentTranslateX;
         previousTranslateY = currentTranslateY;
     } else if (event.touches.length === 1 && currentZoom >= MIN_PAN_ZOOM) {
-        // התחלת גרירה באצבע אחת - רק אם התמונה מוגדלת מספיק
+        // התחלת גרירה באצבע אחת
         isDragging = true;
         startX = event.touches[0].clientX;
         startY = event.touches[0].clientY;
@@ -289,7 +288,7 @@ function handleTouchMove(event) {
 
     if (isPinching && event.touches.length === 2) {
         // --- לוגיקת Pinch Zoom (שתי אצבעות) ---
-        isDragging = false; // ודא שגרירה כבויה בזמן צביטה
+        isDragging = false; 
         const newDistance = getDistance(event.touches[0], event.touches[1]);
         const scaleFactor = newDistance / initialDistance;
 
@@ -298,7 +297,7 @@ function handleTouchMove(event) {
         
         if (newZoom === oldZoom) return;
 
-        // חישוב הקיזוז המתמטי (כדי שהתמונה "תחזור" למקום)
+        // חישוב קיזוז
         const containerRect = imageContainer.getBoundingClientRect();
         const halfWidth = containerRect.width / 2;
         const halfHeight = containerRect.height / 2;
@@ -316,10 +315,13 @@ function handleTouchMove(event) {
         updateImageTransform();
         updateRustLayers(); 
 
-        // ** לוגיקת חלודה וגליץ' במגע (Pinch) **
+        // ** לוגיקת חלודה וגליץ' במגע (Pinch) - התיקון **
         if (currentZoom === 1) {
+            // FIX: מעבר למצב חלודה מלאה כסימן, לא ניקוי מיידי!
             rustLayers.forEach(layer => layer.style.opacity = 0);
-            cleanLayer.style.opacity = 1;
+            rustLayers[2].style.opacity = 1; // מציג את החלודה המלאה
+            cleanLayer.style.opacity = 0;
+
             if (!rustHoldTimeoutId) {
                  rustHoldTimeoutId = setTimeout(() => {
                      rustHoldTimeoutId = null;
@@ -327,6 +329,7 @@ function handleTouchMove(event) {
                  }, RUST_HOLD_DELAY_MS);
             }
         } else {
+            // אם הזום גדול מ-1, בטל את ההמתנה
             if (rustHoldTimeoutId) {
                 clearTimeout(rustHoldTimeoutId);
                 rustHoldTimeoutId = null;
@@ -334,7 +337,6 @@ function handleTouchMove(event) {
         }
         // ------------------------------------------
 
-        // שמירת המיקום הנוכחי ומרחק ההתחלה להמשך תנועה חלקה
         previousTranslateX = currentTranslateX;
         previousTranslateY = currentTranslateY;
         initialDistance = newDistance;
@@ -344,7 +346,6 @@ function handleTouchMove(event) {
         const dx = event.touches[0].clientX - startX;
         const dy = event.touches[0].clientY - startY;
 
-        // גרירה רק אם התמונה מוגדלת
         if (currentZoom >= MIN_PAN_ZOOM) {
             currentTranslateX = previousTranslateX + dx;
             currentTranslateY = previousTranslateY + dy;
@@ -355,17 +356,25 @@ function handleTouchMove(event) {
 
 function handleTouchEnd() {
     isPinching = false;
-    isDragging = false;
-    
+    // אם היינו בגרירה, היא תיפסק, אבל ה-previousTranslate נשמר ב-handleTouchMove
+
     initialFocusPointX = 0; 
     initialFocusPointY = 0;
     
-    // שמור את המיקום הסופי של הקיזוז/גרירה
+    // שמור את המיקום הסופי
     previousTranslateX = currentTranslateX; 
     previousTranslateY = currentTranslateY;
+    
+    // ודא ש-isDragging מוגדר ל-false בסוף מגע
+    isDragging = false; 
 
     // מטפל בהמתנת הגליץ' לאחר סיום מגע
     if (currentZoom === 1 && !rustHoldTimeoutId && !isGlitching) {
+         // FIX: הצג חלודה מלאה לפני תחילת הטיימר
+         rustLayers.forEach(layer => layer.style.opacity = 0);
+         rustLayers[2].style.opacity = 1; 
+         cleanLayer.style.opacity = 0;
+         
          rustHoldTimeoutId = setTimeout(() => {
              rustHoldTimeoutId = null;
              activateGlitchAndReset();
