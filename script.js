@@ -1,10 +1,10 @@
-// script.js - קוד מלא, סופי, ויציב. זום דינמי (כל נקודה במסך).
+// script.js - קוד סופי: זום מהמרכז + גרירה (Pan).
 
 // הגדרות עיקריות
 const MAX_ZOOM = 10;
-const RUST_THRESHOLD = [3, 6, 9]; // ספי חלודה מותאמים
-const RUST_HOLD_DELAY_MS = 2000; // 2 שניות המתנה על החלודה לפני הגליץ'
-const GLITCH_DURATION_MS = 500; // משך הגליץ' הקצר עצמו
+const RUST_THRESHOLD = [3, 6, 9]; // ספי חלודה
+const RUST_HOLD_DELAY_MS = 2000; // 2 שניות המתנה
+const GLITCH_DURATION_MS = 500; // משך הגליץ'
 
 // אלמנטים
 const imageContainer = document.getElementById('image-container');
@@ -25,45 +25,55 @@ let currentZoom = 1;
 let isGlitching = false;
 let rustHoldTimeoutId = null;
 let glitchTimeoutId = null;
+let maxRustLevel = 0; 
+
+// --- משתנים חדשים לגרירה (Pan) ---
+let isDragging = false;
+let startX = 0;
+let startY = 0;
+let currentTranslateX = 0;
+let currentTranslateY = 0;
+let previousTranslateX = 0;
+let previousTranslateY = 0;
+// ---------------------------------
+
+// משתנים למגע/צביטה
 let initialDistance = 0;
-let focusX = 50; // מתעדכן דינמית ע"י setZoomFocus
-let focusY = 50; // מתעדכן דינמית ע"י setZoomFocus
-let maxRustLevel = 0; // שומר את רמת החלודה הגבוהה ביותר שנחשפה
+let isPinching = false;
 
 
 function updateImageTransform() {
-    // הפוקוס מתעדכן לפי focusX/Y שנקבעו בלחיצה/מגע
-    imageContainer.style.transformOrigin = `${focusX}% ${focusY}%`; 
-    imageContainer.style.transform = `scale(${currentZoom})`;
+    // הפוקוס תמיד במרכז (50% 50%) בזמן הזום
+    imageContainer.style.transformOrigin = '50% 50%'; 
+    imageContainer.style.transform = 
+        `translate(${currentTranslateX}px, ${currentTranslateY}px) scale(${currentZoom})`;
+
+    // בלוודא שכל שכבות העץ ממוקמות באותה צורה
+    document.querySelectorAll('.tree-layer').forEach(layer => {
+        // המיקום הראשוני שלהם הוא translate(-50%, -50%)
+        // כך שאין צורך לשנות להם את הטרנספורם כאן.
+        // הם יזוזו עם ה-imageContainer
+    });
 }
 
-/**
- * @function updateRustLayers
- * חושף את שכבות החלודה בהתאם לרמת הזום, ומונע חזרה לאחור.
- */
 function updateRustLayers() {
     if (rustHoldTimeoutId || isGlitching) return;
 
     let currentRustVisible = false;
     let currentMaxRustIndex = -1;
 
-    // שלב 1: קביעת רמת החלודה העדכנית
     rustLayers.forEach((layer, index) => {
         if (currentZoom >= RUST_THRESHOLD[index]) {
             currentMaxRustIndex = index;
         }
     });
 
-    // שלב 2: עדכון הרמה המקסימלית שהושגה
     maxRustLevel = Math.max(maxRustLevel, currentMaxRustIndex + 1);
 
-    // שלב 3: הפעלת השקיפות לפי הרמה המקסימלית שהושגה
     if (currentZoom === 1) {
-        // בזום 1 רגיל, הכל נקי (לפני לוגיקת הגליץ')
         rustLayers.forEach(layer => layer.style.opacity = 0);
         cleanLayer.style.opacity = 1;
     } else {
-        // בזום > 1: השאר את כל השכבות עד maxRustLevel גלויות
         for (let i = 0; i < rustLayers.length; i++) {
             if (i < maxRustLevel) {
                 rustLayers[i].style.opacity = 1;
@@ -72,15 +82,10 @@ function updateRustLayers() {
                 rustLayers[i].style.opacity = 0;
             }
         }
-        
-        // הסתר את הנקייה אם יש חלודה כלשהי גלויה
         cleanLayer.style.opacity = currentRustVisible ? 0 : 1;
     }
 }
 
-/**
- * מפעיל את אפקט הגליץ' ואז מאפס הכל.
- */
 function activateGlitchAndReset() {
     if (isGlitching) return;
     isGlitching = true;
@@ -91,11 +96,13 @@ function activateGlitchAndReset() {
         isGlitching = false;
         glitchTimeoutId = null;
 
-        // איפוס מלא למצב נקי ומרכזי
+        // איפוס מלא
         currentZoom = 1;
-        focusX = 50; // איפוס
-        focusY = 50; // איפוס
-        maxRustLevel = 0; // איפוס רמת החלודה
+        currentTranslateX = 0;
+        currentTranslateY = 0;
+        previousTranslateX = 0;
+        previousTranslateY = 0;
+        maxRustLevel = 0; 
         updateImageTransform();
         
         rustLayers.forEach(layer => layer.style.opacity = 0);
@@ -104,61 +111,56 @@ function activateGlitchAndReset() {
     }, GLITCH_DURATION_MS);
 }
 
-/**
- * מחשב את נקודת הפוקוס (מקור הטרנספורמציה) לפי מיקום העכבר/מגע.
- * *** פונקציה זו שוחזרה! ***
- */
+// פונקציית setZoomFocus כבר לא נחוצה כי הפוקוס תמיד 50% 50%
+/*
 function setZoomFocus(clientX, clientY) {
-    const rect = imageContainer.getBoundingClientRect();
-    
-    focusX = ((clientX - rect.left) / rect.width) * 100;
-    focusY = ((clientY - rect.top) / rect.height) * 100;
-
-    focusX = Math.max(0, Math.min(100, focusX));
-    focusY = Math.max(0, Math.min(100, focusY));
+    // ...
 }
+*/
 
-/**
- * מבצע את לוגיקת הזום.
- */
 function performZoom(delta) {
-    // 1. ניקוי טיימאאוטים קיימים אם אנחנו מתחילים לזוז
     if (rustHoldTimeoutId) {
         clearTimeout(rustHoldTimeoutId);
         rustHoldTimeoutId = null;
     }
-    // אם ביטלנו גליץ' באמצע, נאפס למצב נקי מיד
     if (glitchTimeoutId) {
         clearTimeout(glitchTimeoutId);
         glitchTimeoutId = null;
         glitchOverlay.classList.remove('glitching');
         isGlitching = false;
         currentZoom = 1;
+        currentTranslateX = 0; // איפוס תרגום בעת ביטול גליץ'
+        currentTranslateY = 0;
+        previousTranslateX = 0;
+        previousTranslateY = 0;
         updateImageTransform();
         rustLayers.forEach(layer => layer.style.opacity = 0);
         cleanLayer.style.opacity = 1;
-        maxRustLevel = 0; // איפוס רמת חלודה
+        maxRustLevel = 0; 
     }
     if (isGlitching) return;
 
     let newZoom = currentZoom + delta;
     newZoom = Math.max(1, Math.min(MAX_ZOOM, newZoom));
     
+    // אם הזום חוזר ל-1, נאפס את מיקום התרגום
+    if (newZoom === 1) {
+        currentTranslateX = 0;
+        currentTranslateY = 0;
+        previousTranslateX = 0;
+        previousTranslateY = 0;
+    }
+
     currentZoom = newZoom;
     updateImageTransform();
-    updateRustLayers(); // יעדכן חלודה וישמור את המקסימום שהושג
+    updateRustLayers();
 
-    // ------------------------------------------
-    // לוגיקת המתנה של 2 שניות על החלודה המלאה (בזום 1)
-    // ------------------------------------------
     if (currentZoom === 1 && delta < 0) {
-        // 1. ודא שהחלודה המלאה גלויה
         rustLayers.forEach(layer => layer.style.opacity = 0);
         rustLayers[2].style.opacity = 1;
         cleanLayer.style.opacity = 0;
         
-        // 2. התחל טיימאאוט המתנה של 2 שניות
-        if (!rustHoldTimeoutId) { // ודא שאין טיימאאוט קודם
+        if (!rustHoldTimeoutId) {
              rustHoldTimeoutId = setTimeout(() => {
                  rustHoldTimeoutId = null;
                  activateGlitchAndReset();
@@ -168,17 +170,47 @@ function performZoom(delta) {
 }
 
 // ------------------------------------------
-// מאזינים לעכבר (גלגול) ומגע (Pinch)
+// מאזינים לעכבר (גלגול וגרירה)
 // ------------------------------------------
 
 function handleWheel(event) {
     event.preventDefault();
-    setZoomFocus(event.clientX, event.clientY); // *** שוחזר ***
     const delta = -event.deltaY * 0.005;
     performZoom(delta);
 }
 
-// פונקציות עזר למגע (Pinch Zoom)
+function handleMouseDown(event) {
+    if (isGlitching || event.button !== 0 || isPinching) return; // רק כפתור שמאלי, ולא בזמן צביטה
+    isDragging = true;
+    startX = event.clientX;
+    startY = event.clientY;
+    imageContainer.style.cursor = 'grabbing';
+}
+
+function handleMouseMove(event) {
+    if (!isDragging || isGlitching || isPinching) return;
+
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+
+    currentTranslateX = previousTranslateX + dx;
+    currentTranslateY = previousTranslateY + dy;
+
+    updateImageTransform();
+}
+
+function handleMouseUp() {
+    if (!isDragging) return;
+    isDragging = false;
+    previousTranslateX = currentTranslateX;
+    previousTranslateY = currentTranslateY;
+    imageContainer.style.cursor = 'grab';
+}
+
+// ------------------------------------------
+// מאזינים למגע (Pinch Zoom וגרירה)
+// ------------------------------------------
+
 function getDistance(t1, t2) {
     return Math.sqrt(
         Math.pow(t2.clientX - t1.clientX, 2) +
@@ -193,7 +225,7 @@ function getCenter(t1, t2) {
 }
 
 function handleTouchStart(event) {
-    // בטל תהליך המתנה/גליץ' אם המשתמש נוגע
+    // ... (איפוס גליץ' והמתנה) ...
     if (rustHoldTimeoutId || isGlitching) {
         if (rustHoldTimeoutId) clearTimeout(rustHoldTimeoutId);
         if (glitchTimeoutId) clearTimeout(glitchTimeoutId);
@@ -203,44 +235,64 @@ function handleTouchStart(event) {
         isGlitching = false;
         
         currentZoom = 1;
+        currentTranslateX = 0;
+        currentTranslateY = 0;
+        previousTranslateX = 0;
+        previousTranslateY = 0;
         updateImageTransform();
         rustLayers.forEach(layer => layer.style.opacity = 0);
         cleanLayer.style.opacity = 1;
-        maxRustLevel = 0; // איפוס רמת חלודה
+        maxRustLevel = 0; 
         return;
     }
 
     if (event.touches.length === 2) {
+        isPinching = true;
         initialDistance = getDistance(event.touches[0], event.touches[1]);
-        const center = getCenter(event.touches[0], event.touches[1]); // *** שוחזר ***
-        setZoomFocus(center.x, center.y); // *** שוחזר ***
+        // כאשר מתחילים צביטה, "עוצרים" את הגרירה ומאפסים נקודת התחלה
+        previousTranslateX = currentTranslateX;
+        previousTranslateY = currentTranslateY;
+    } else if (event.touches.length === 1 && !isPinching) {
+        // גרירה באצבע אחת
+        isDragging = true;
+        startX = event.touches[0].clientX;
+        startY = event.touches[0].clientY;
+        previousTranslateX = currentTranslateX;
+        previousTranslateY = currentTranslateY;
     }
 }
 
 function handleTouchMove(event) {
     if (isGlitching) return;
+    event.preventDefault(); // מונע גלילה של הדף
 
-    if (event.touches.length === 2 && initialDistance > 0) {
-        event.preventDefault();
-        
+    if (isPinching && event.touches.length === 2) {
         const newDistance = getDistance(event.touches[0], event.touches[1]);
-        const center = getCenter(event.touches[0], event.touches[1]); // *** שוחזר ***
-
-        setZoomFocus(center.x, center.y); // *** שוחזר ***
-
         const scaleChange = newDistance / initialDistance;
         const delta = scaleChange - 1;
 
-        // מכפיל 1.0 (שומר על חלקות)
+        // זום מהמרכז
         performZoom(delta * 1.0); 
         
         initialDistance = newDistance;
+
+    } else if (isDragging && event.touches.length === 1 && !isPinching) {
+        const dx = event.touches[0].clientX - startX;
+        const dy = event.touches[0].clientY - startY;
+
+        currentTranslateX = previousTranslateX + dx;
+        currentTranslateY = previousTranslateY + dy;
+        
+        updateImageTransform();
     }
 }
 
 function handleTouchEnd() {
-    initialDistance = 0;
-    // אם סיימנו מגע כשהזום על 1, הפעל את טיימאאוט ההמתנה
+    isPinching = false;
+    isDragging = false;
+    previousTranslateX = currentTranslateX; // שמור את המיקום הסופי של הגרירה
+    previousTranslateY = currentTranslateY;
+
     if (currentZoom === 1 && !rustHoldTimeoutId && !isGlitching) {
          rustHoldTimeoutId = setTimeout(() => {
              rustHoldTimeoutId = null;
@@ -249,10 +301,22 @@ function handleTouchEnd() {
     }
 }
 
+// ------------------------------------------
+// חיבור מאזיני אירועים
+// ------------------------------------------
+
 window.addEventListener('wheel', handleWheel, { passive: false });
+
+// מאזיני עכבר לגרירה
+imageContainer.addEventListener('mousedown', handleMouseDown);
+window.addEventListener('mousemove', handleMouseMove);
+window.addEventListener('mouseup', handleMouseUp); // על ה-window כדי לתפוס גם כשהעכבר יוצא
+
+// מאזיני מגע
 window.addEventListener('touchstart', handleTouchStart, { passive: false });
 window.addEventListener('touchmove', handleTouchMove, { passive: false });
 window.addEventListener('touchend', handleTouchEnd);
+
 
 // אתחול: התחלה במצב נקי
 updateImageTransform();
