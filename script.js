@@ -1,4 +1,4 @@
-// script.js - קוד מלא, סופי, ויציב
+// script.js - קוד מלא, סופי, ויציב עם תיקון חלקות זום בנייד
 
 // הגדרות עיקריות
 const MAX_ZOOM = 10;
@@ -226,7 +226,8 @@ function handleTouchMove(event) {
         const scaleChange = newDistance / initialDistance;
         const delta = scaleChange - 1;
 
-        performZoom(delta * 2); // הזום אמור לעבוד כעת
+        // התיקון לחלקות: משתמשים במכפיל 1.0 (רגיל/מעט חלש)
+        performZoom(delta * 1.0); 
         
         initialDistance = newDistance;
     }
