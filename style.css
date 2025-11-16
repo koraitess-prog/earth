@@ -20,6 +20,7 @@ body {
     position: relative;
     width: 100vw; 
     height: 100vh;
+    /* מעבר חלק לתנועת הזום (scale) */
     transition: transform 0.2s ease-out; 
     overflow: hidden;
 }
@@ -35,7 +36,7 @@ body {
     pointer-events: none;
     object-fit: contain; 
     
-    /* מאפשר לחלודה להופיע בעדינות */
+    /* מעבר שקיפות איטי לחלודה (Fade-in) */
     transition: opacity 0.8s ease-in-out; 
 }
 
