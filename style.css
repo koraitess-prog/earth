@@ -1,6 +1,5 @@
-/* style.css - קוד מלא עם תצוגת זום-אאוט ראשונית גדולה יותר */
+/* style.css - כולל מעבר עדין וגליץ' */
 
-/* איפוס CSS בסיסי לוודא שאין שוליים מפריעים */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -8,7 +7,6 @@
 }
 
 body {
-    /* רקע שחור חזק וכיסוי מסך מלא */
     background-color: #000000 !important; 
     overflow: hidden !important; 
     display: flex;
@@ -19,7 +17,6 @@ body {
 }
 
 #image-container {
-    /* המיכל נשאר בגודל מלא כדי לאפשר זום */
     position: relative;
     width: 100vw; 
     height: 100vh;
@@ -27,32 +24,26 @@ body {
     overflow: hidden;
 }
 
-/* -------------------------------------
-   שינוי כאן: התמונה תופסת רק 70% מהמיכל
-   ------------------------------------- */
+/* הגדרות כלליות לכל שכבות העץ */
 .tree-layer {
     position: absolute;
-    /* מרכוז התמונה במיכל */
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%); 
-
-    /* הקטנת גודל התמונה ההתחלתית */
     width: 70%; 
     height: 70%;
-    
     pointer-events: none;
     object-fit: contain; 
-    transition: opacity 0.5s ease-in-out; 
+    
+    /* מאפשר לחלודה להופיע בעדינות */
+    transition: opacity 0.8s ease-in-out; 
 }
 
-/* התמונה הנקייה (בסיס) */
 #tree-clean {
     z-index: 1; 
     opacity: 1; 
 }
 
-/* שכבות החלודה מתחילות נסתרות וצריכות לכסות את הנקייה */
 .rust-layer {
     z-index: 2; 
     opacity: 0; 

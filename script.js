@@ -1,7 +1,7 @@
-// script.js - קוד סופי ומתוקן לשמירת רמת החלודה
+// script.js - קוד מלא, סופי, ויציב
 
 // הגדרות עיקריות
-const MAX_ZOOM = 10; 
+const MAX_ZOOM = 10;
 const RUST_THRESHOLD = [3, 6, 9]; // ספי חלודה מותאמים
 const RUST_HOLD_DELAY_MS = 2000; // 2 שניות המתנה על החלודה לפני הגליץ'
 const GLITCH_DURATION_MS = 500; // משך הגליץ' הקצר עצמו
@@ -23,13 +23,12 @@ if (!imageContainer || rustLayers.includes(null) || !glitchOverlay || !cleanLaye
 // מצב גלובלי
 let currentZoom = 1;
 let isGlitching = false;
-let rustHoldTimeoutId = null; 
-let glitchTimeoutId = null;   
-let initialDistance = 0; 
-let focusX = 50; 
-let focusY = 50; 
-// <<< חדש: שומר את רמת החלודה הגבוהה ביותר שנחשפה (0, 1, 2, או 3 עבור מלא)
-let maxRustLevel = 0; 
+let rustHoldTimeoutId = null;
+let glitchTimeoutId = null;
+let initialDistance = 0;
+let focusX = 50;
+let focusY = 50;
+let maxRustLevel = 0; // שומר את רמת החלודה הגבוהה ביותר שנחשפה
 
 
 function updateImageTransform() {
@@ -93,15 +92,15 @@ function activateGlitchAndReset() {
 
         // איפוס מלא למצב נקי ומרכזי
         currentZoom = 1;
-        focusX = 50; 
-        focusY = 50; 
+        focusX = 50;
+        focusY = 50;
         maxRustLevel = 0; // איפוס רמת החלודה
         updateImageTransform();
         
         rustLayers.forEach(layer => layer.style.opacity = 0);
-        cleanLayer.style.opacity = 1; 
+        cleanLayer.style.opacity = 1;
         
-    }, GLITCH_DURATION_MS); 
+    }, GLITCH_DURATION_MS);
 }
 
 function setZoomFocus(clientX, clientY) {
@@ -127,7 +126,7 @@ function performZoom(delta) {
     if (glitchTimeoutId) {
         clearTimeout(glitchTimeoutId);
         glitchTimeoutId = null;
-        glitchOverlay.classList.remove('glitching'); 
+        glitchOverlay.classList.remove('glitching');
         isGlitching = false;
         currentZoom = 1;
         updateImageTransform();
@@ -135,7 +134,7 @@ function performZoom(delta) {
         cleanLayer.style.opacity = 1;
         maxRustLevel = 0; // איפוס רמת חלודה
     }
-    if (isGlitching) return; 
+    if (isGlitching) return;
 
     let newZoom = currentZoom + delta;
     newZoom = Math.max(1, Math.min(MAX_ZOOM, newZoom));
@@ -150,17 +149,17 @@ function performZoom(delta) {
     if (currentZoom === 1 && delta < 0) {
         // 1. ודא שהחלודה המלאה גלויה
         rustLayers.forEach(layer => layer.style.opacity = 0);
-        rustLayers[2].style.opacity = 1; 
-        cleanLayer.style.opacity = 0; 
+        rustLayers[2].style.opacity = 1;
+        cleanLayer.style.opacity = 0;
         
         // 2. התחל טיימאאוט המתנה של 2 שניות
         if (!rustHoldTimeoutId) { // ודא שאין טיימאאוט קודם
              rustHoldTimeoutId = setTimeout(() => {
-                rustHoldTimeoutId = null;
-                activateGlitchAndReset(); 
+                 rustHoldTimeoutId = null;
+                 activateGlitchAndReset();
              }, RUST_HOLD_DELAY_MS);
         }
-    } 
+    }
 }
 
 // ------------------------------------------
@@ -170,14 +169,14 @@ function performZoom(delta) {
 function handleWheel(event) {
     event.preventDefault();
     setZoomFocus(event.clientX, event.clientY);
-    const delta = -event.deltaY * 0.005; 
+    const delta = -event.deltaY * 0.005;
     performZoom(delta);
 }
 
 // פונקציות עזר למגע (Pinch Zoom)
 function getDistance(t1, t2) {
     return Math.sqrt(
-        Math.pow(t2.clientX - t1.clientX, 2) + 
+        Math.pow(t2.clientX - t1.clientX, 2) +
         Math.pow(t2.clientY - t1.clientY, 2)
     );
 }
@@ -203,7 +202,7 @@ function handleTouchStart(event) {
         rustLayers.forEach(layer => layer.style.opacity = 0);
         cleanLayer.style.opacity = 1;
         maxRustLevel = 0; // איפוס רמת חלודה
-        return; 
+        return;
     }
 
     if (event.touches.length === 2) {
@@ -217,7 +216,7 @@ function handleTouchMove(event) {
     if (isGlitching) return;
 
     if (event.touches.length === 2 && initialDistance > 0) {
-        event.preventDefault(); 
+        event.preventDefault();
         
         const newDistance = getDistance(event.touches[0], event.touches[1]);
         const center = getCenter(event.touches[0], event.touches[1]);
@@ -225,21 +224,21 @@ function handleTouchMove(event) {
         setZoomFocus(center.x, center.y);
 
         const scaleChange = newDistance / initialDistance;
-        const delta = scaleChange - 1; 
+        const delta = scaleChange - 1;
 
-        performZoom(delta * 2); 
+        performZoom(delta * 2); // הזום אמור לעבוד כעת
         
-        initialDistance = newDistance; 
+        initialDistance = newDistance;
     }
 }
 
 function handleTouchEnd() {
-    initialDistance = 0; 
+    initialDistance = 0;
     // אם סיימנו מגע כשהזום על 1, הפעל את טיימאאוט ההמתנה
     if (currentZoom === 1 && !rustHoldTimeoutId && !isGlitching) {
          rustHoldTimeoutId = setTimeout(() => {
-            rustHoldTimeoutId = null;
-            activateGlitchAndReset();
+             rustHoldTimeoutId = null;
+             activateGlitchAndReset();
          }, RUST_HOLD_DELAY_MS);
     }
 }
